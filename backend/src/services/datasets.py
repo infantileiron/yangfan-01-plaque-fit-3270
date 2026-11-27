@@ -42,9 +42,21 @@ def save_in(db, name, rows, author, audit=True):
     return item, True
 
 
+def check_split_labels(rows):
+    for row in rows:
+        split, overflow = row["split"], row["overflow"]
+        if split == "训练" and overflow is None:
+            raise ValueError("训练纸样必须标明实测溢出。")
+        if split == "留出" and overflow is not None:
+            raise ValueError("留出纸样的实测以打样台回传为准，底稿中请留空。")
+        if split == "待校" and overflow is not None:
+            raise ValueError("待校纸样的实测溢出列必须留空。")
+
+
 def ingest(name, contents, author):
     try:
         rows = parse_csv(contents, PROFILE["columns"])
+        check_split_labels(rows)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     with Session.begin() as db:

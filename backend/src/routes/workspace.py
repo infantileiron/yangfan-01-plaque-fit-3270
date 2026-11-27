@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends
 from src.business.profile import PROFILE
 from src.controllers import workspace
 from src.routes.dependencies import analyst, current_account, reviewer
-from src.schemas.requests import Import, ReviewRequest, RunRequest
-from src.services import audit, datasets, exports, reviews, runs
+from src.schemas.requests import Import, MeasurementImport, ReviewRequest, RunRequest
+from src.services import audit, datasets, exports, measurements, reviews, runs
 
 router = APIRouter(dependencies=[Depends(current_account)])
 
@@ -26,6 +26,17 @@ def import_dataset(body: Import, account=Depends(analyst)):
 
 router.add_api_route("/datasets/{dataset_id}", workspace.dataset_details, methods=["GET"])
 router.add_api_route("/datasets/{dataset_id}/csv", workspace.dataset_csv, methods=["GET"])
+router.add_api_route("/datasets/{dataset_id}/reconciliation", measurements.reconciliation, methods=["GET"])
+
+
+@router.get("/measurements")
+def list_measurements():
+    return measurements.list_ledger()
+
+
+@router.post("/measurements", status_code=201)
+def import_measurements(body: MeasurementImport, account=Depends(analyst)):
+    return measurements.ingest(body.csv, account.email)
 
 
 @router.get("/runs")

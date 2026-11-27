@@ -12,6 +12,7 @@ from src.constants.workflow import Stage
 from src.models.base import new_id, utcnow
 from src.models.dataset import Dataset
 from src.models.run import Run
+from src.services import measurements
 from src.services.audit import record
 from src.services.exports import result_keys
 from src.utils.csv_data import render_csv
@@ -43,7 +44,10 @@ def claim():
         run.started_at = utcnow()
         run.attempts += 1
         dataset = db.get(Dataset, run.dataset_id)
-        return run.id, run.lease, run.parameter, dataset.rows
+        if run.evidence is None:
+            holdout_ids = [row["sample_id"] for row in dataset.rows if row["split"] == "留出"]
+            run.evidence = measurements.snapshot_for(db, holdout_ids)
+        return run.id, run.lease, run.parameter, dataset.rows, run.evidence
 
 
 def verify_result(result):
@@ -62,12 +66,12 @@ def verify_result(result):
 
 
 def execute(job):
-    run_id, lease, parameter, rows = job
+    run_id, lease, parameter, rows, evidence = job
     artifact = None
     result = None
     error = None
     try:
-        result = verify_result(analyze(rows, parameter))
+        result = verify_result(analyze(rows, parameter, evidence))
         artifact = f"{run_id}-{lease}.csv"
         path = ARTIFACTS / artifact
         temporary = path.with_suffix(".tmp")

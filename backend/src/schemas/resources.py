@@ -35,5 +35,13 @@ def review_view(review):
     }
 
 
+def measurement_view(measurement):
+    return {
+        "sample_id": measurement.sample_id, "station": measurement.station,
+        "revision": measurement.revision, "overflow": measurement.overflow,
+        "actor": measurement.actor, "created_at": utc(measurement.created_at),
+    }
+
+
 def audit_view(event):
     return {"actor": event.actor, "action": event.action, "subject": event.subject, "created_at": utc(event.created_at)}

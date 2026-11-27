@@ -5,8 +5,9 @@ import json
 import math
 
 
-def parse_csv(contents, columns):
+def parse_csv(contents, columns, unique=("sample_id",)):
     keys = [field["key"] for field in columns]
+    labels = {field["key"]: field["label"] for field in columns}
     try:
         reader = csv.DictReader(io.StringIO(contents.lstrip("\ufeff"), newline=""), strict=True)
         if reader.fieldnames != keys:
@@ -19,10 +20,11 @@ def parse_csv(contents, columns):
             if None in record or None in record.values():
                 raise ValueError(f"第 {line} 行列数与表头不符。")
             converted = {field["key"]: coerce(record[field["key"]].strip(), field, line) for field in columns}
-            sample = converted["sample_id"]
-            if sample in seen:
-                raise ValueError(f"第 {line} 行样本编号重复：{sample}")
-            seen.add(sample)
+            marker = tuple(converted[field] for field in unique)
+            if marker in seen:
+                detail = "、".join(f"{labels[field]} {value}" for field, value in zip(unique, marker))
+                raise ValueError(f"第 {line} 行重复：{detail}。")
+            seen.add(marker)
             rows.append(converted)
     except csv.Error as exc:
         raise ValueError(f"CSV 格式错误：{exc}") from exc
@@ -49,6 +51,10 @@ def coerce(value, field, line):
         raise ValueError(f"{label}应为数字。") from exc
     if not math.isfinite(number) or number < field.get("min", -math.inf) or number > field.get("max", math.inf):
         raise ValueError(f"{label}超出允许范围。")
+    if field.get("integer"):
+        if not number.is_integer():
+            raise ValueError(f"{label}应为整数。")
+        return int(number)
     return 0.0 if number == 0 else number
 
 
